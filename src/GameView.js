@@ -1,0 +1,285 @@
+/**
+ * Created by change on 15/4/27.
+ */
+
+//背景 size
+var bgSize  = null;
+//小人
+var person = null;
+//下面黑色的size
+var sbSize = null;
+
+var guideTextPic = null;
+
+//显示分数的
+var ScoreText ;
+var score;
+
+var gameViewXOffset = 0;
+var preBlackXOffset = 0;
+
+var stickObject = null;
+
+
+
+var GameLayer = cc.Layer.extend({
+    ctor : function(){
+        this._super();
+    }
+});
+
+var getAnimate = function( spriteName , frameCount , duration) {
+    var animFrames = [];
+    var str = "";
+    var frame;
+    var cache = cc.spriteFrameCache;
+    for (var i = 1; i < frameCount; i++) {
+        str = spriteName + i + ".png";
+        frame = cache.getSpriteFrame(str);
+        animFrames.push(frame);
+    }
+    var animation = new cc.Animation(animFrames, duration );
+    return cc.animate(animation);
+}
+
+
+var personControl = {
+    initRes : function(layer){
+        var cache = cc.spriteFrameCache;
+        cache.addSpriteFrames(res.ShakePlist, res.ShakePng);
+        cache.addSpriteFrames(res.KickPlist, res.KickPng);
+        cache.addSpriteFrames(res.WalkPlist, res.WalkPng);
+        cache.addSpriteFrames(res.YaoPlist, res.YaoPng);
+        person = new cc.Sprite('#d0001.png');
+        var perSize = person.getContentSize();
+        person.x = bgSize.width/2;
+        person.y = sbSize.height + perSize.height/2;
+        layer.addChild(person);
+    },
+    yao : function (){
+        var ani = getAnimate("d000",10,0.1);
+        person.stopAllActions();
+        person.runAction(ani.repeatForever());
+    },
+    walk :function(time){
+        var ani = getAnimate("z000",10,time);
+        person.stopAllActions();
+        person.runAction(ani.repeatForever());
+    },
+    shake : function (){
+        var ani = getAnimate("dq000",10,0.1);
+        person.stopAllActions();
+        person.runAction(ani.repeatForever());
+    }
+
+};
+
+//根据不同的value 获取不同的背景图片
+var GameViewBackground = cc.Layer.extend({
+    ctor : function () {
+        this._super();
+        bgSize = cc.winSize;
+        var num = parseInt(cc.random0To1() * 3);
+        var name ;
+        switch (num)
+        {
+            case 0:
+            {
+                name = res.StartBackground_png0;
+            }break;
+            case 1:
+            {
+                name = res.StartBackground_png1;
+            }break;
+            case 2:
+            {
+                name = res.StartBackground_png2;
+            }break;
+            case 3:
+            {
+                name = res.StartBackground_png3;
+            }break;
+            default :
+            {
+                name = res.StartBackground_png0;
+            }break;
+        }
+        var bg = new cc.Sprite(name);
+        bg.setPosition(bgSize.width /2 ,bgSize.height /2);
+        this.addChild(bg,-1);
+    },
+    scoreBg:function(){
+        var bgSize = cc.winSize;
+        var scoreBg = new cc.Sprite(res.ScoreBg);
+        scoreBg.x = bgSize.width/2;
+        scoreBg.y = bgSize.height/2+300;
+        this.addChild(scoreBg,1);
+
+        ScoreText = new cc.LabelTTF("","宋体",46);
+        ScoreText.setPosition(cc.p(bgSize.width/2,bgSize.height/2+300));
+        ScoreText.setColor(cc.color(255,255,255));
+        this.addChild(ScoreText,2);
+    },
+    drawGuideText : function(){
+        guideTextPic = new cc.Sprite(res.guideText);
+        guideTextPic.setPosition(bgSize.width/2, bgSize.height/2+220);
+        this.addChild(guideTextPic,2);
+        guideTextPic.setVisible(false);
+    }
+});
+
+
+var GameView = cc.Layer.extend({
+    self:null,
+    _start:false,
+    ctor: function(){
+        this._super();
+        var stickBlack = new cc.Sprite(res.StickBlack_png);
+        sbSize = stickBlack.getContentSize();
+        stickBlack.setScale(180/sbSize.width, 387/sbSize.height);
+        stickBlack.x = bgSize.width/2;
+        stickBlack.y = sbSize.height/2-50;
+        this.addChild(stickBlack);
+        self = this;
+
+        personControl.initRes(this);
+        personControl.yao();
+
+        cc.eventManager.addListener({
+            event: cc.EventListener.TOUCH_ONE_BY_ONE,
+            swallowTouches: true,
+            onTouchBegan: this.onTouchBegan,
+            onTouchEnded: this.onTouchEnded
+        }, this);
+    },
+    startGame : function(){
+        score = 0;
+        ScoreText.setString(score);
+
+        var _width = 180;
+        gameViewXOffset = -_width/2 + bgSize.width/2;
+        preBlackXOffset = _width;
+        this.runAction(cc.sequence(cc.moveBy(0.2, cc.p( - gameViewXOffset, 100))));
+        //this.npcRun(0.1);
+        personControl.walk(0.1);
+        person.runAction
+        (
+            cc.sequence
+            (
+                cc.moveBy(0.2, cc.p(_width/2-28, 0)),
+                cc.callFunc(this.personYao, this),
+                cc.callFunc(this.addBlock, this)
+            )
+        );
+        if (guideTextPic != null) {
+            guideTextPic.setVisible(true);
+        }
+
+    },
+    addBlock : function(){
+        self._start = true;
+        stickObject = new cc.Sprite(res.StickBlack_png);
+        stickObject.setAnchorPoint(cc.p(0.5, 0));
+
+        var stickSize = stickObject.getContentSize();
+        stickObject.setPosition( gameViewXOffset + preBlackXOffset - 2.5,sbSize.height);
+        stickObject.setScaleY(0);
+        this.addChild(stickObject);
+
+        var flag = cc.random0To1() * 120 + 10;
+        var stickBlack = new cc.Sprite(res.StickBlack_png);
+        var tSize = stickBlack.getContentSize();
+        stickBlack.setScale(flag / sbSize.width, 387 / sbSize.height);
+        stickBlack.x = gameViewXOffset + bgSize.width + flag/2;
+        stickBlack.y = - 100;
+        stickBlack.setAnchorPoint(0.5,0);
+        this.addChild(stickBlack);
+
+        var _offset = bgSize.width - preBlackXOffset;
+//			var flag1 = (cc.random0To1()+1)/4;
+        var flag1 = (cc.random0To1() + 0.6) / 2;
+        currBlackXOffset = flag;
+        betweenXOffset = flag1 * _offset;
+
+        stickBlack.runAction
+        (
+            cc.sequence(cc.moveBy(0.05, cc.p( - betweenXOffset, 0)))
+        );
+
+    },
+    personYao : function (){
+        personControl.yao();
+    },
+    onTouchBegan : function(touch,event){
+        cc.log("touch begin");
+        if (self._start) {
+            self.startSchedule();
+            return true;
+        }
+        return false;
+    },
+    onTouchEnded : function(touch , event){
+        self.stopSchedule();
+    },
+    startSchedule : function(){
+        self.schedule(this.upDateBlack, 0.02);
+        personControl.shake();
+    },
+    stopSchedule : function(){
+        this.unschedule(this.upDateBlack);
+        self._start = false;
+        stickObject.runAction
+        (
+            cc.sequence
+            (
+                cc.delayTime(0.3),
+                cc.rotateBy(0.1, 90),
+                cc.callFunc(this.rotateEnd, this)
+            )
+        );
+
+    }, upDateBlack : function(){
+        var scaleY = stickObject.getScaleY();
+        stickObject.setScaleY(scaleY+0.07);
+    },rotateEnd : function(){
+        var uSize = stickObject.getContentSize();
+        var finalHeight = stickObject.getScaleY() * uSize.height;
+        //判断是否可以通过,
+        var offsetll = (betweenXOffset + preBlackXOffset);
+        var result = bgSize.width - offsetll;
+        if (result + 5 <= finalHeight && (result + currBlackXOffset >= finalHeight)) {
+            //成功
+//	    		preBlackXOffset = currBlackXOffset;
+            this.next(result + currBlackXOffset);
+        } else {
+            //失败
+            if(result+currBlackXOffset < finalHeight){
+                this.gameOver(result+currBlackXOffset+50);
+            }else{
+                this.gameOver(finalHeight+30);
+            }
+        }
+    },
+    gameOver : function(){
+        cc.log("over.....");
+    },
+    nextBlack : function(){
+        score++;
+        ScoreText.setString(score);
+        personControl.yao();
+    },
+    next : function(value){
+        cc.log(value);
+        var flag = value / 500;
+        personControl.walk(flag / 30);
+        person.runAction
+        (
+            cc.sequence
+            (
+                cc.moveBy(flag, cc.p(value, 0)),
+                cc.callFunc(this.nextBlack, this)
+            )
+        );
+    }
+
+});
