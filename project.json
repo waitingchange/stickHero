@@ -14,6 +14,7 @@
         "src/resource.js",
         "src/MenuView.js",
         "src/GameView.js",
+        "src/GameOver.js",
         "src/app.js"
     ]
 }
